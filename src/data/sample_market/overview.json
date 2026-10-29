@@ -1,0 +1,15 @@
+{
+  "note": "Illustrative sample market data; index levels and price paths are not real.",
+  "as_of": "2026-10-28",
+  "indexes": [
+    {"name": "S&P 500",          "value": 5800.0,  "change_pct": 0.42},
+    {"name": "Nasdaq Composite", "value": 18400.0, "change_pct": 0.65},
+    {"name": "Dow Jones",        "value": 42300.0, "change_pct": -0.12}
+  ],
+  "tickers": {
+    "VTI":  {"name": "Total US Stock Market ETF", "start_price": 230.0, "daily_drift": 0.0004, "daily_volatility": 0.010},
+    "AAPL": {"name": "Apple Inc.",                "start_price": 165.0, "daily_drift": 0.0005, "daily_volatility": 0.016},
+    "MSFT": {"name": "Microsoft Corp.",           "start_price": 360.0, "daily_drift": 0.0005, "daily_volatility": 0.014},
+    "BND":  {"name": "Total Bond Market ETF",     "start_price": 73.0,  "daily_drift": 0.0000, "daily_volatility": 0.003}
+  }
+}

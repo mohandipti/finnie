@@ -1,0 +1,7 @@
+# Finnie — AI Finance Assistant (Python 3.11+)
+# Dependencies are declared in pyproject.toml; this installs the project with
+# all extras used in development. Easiest setup: ./scripts/setup.sh
+#
+#   pip install -r requirements.txt
+#
+-e .[dev,local-embeddings]

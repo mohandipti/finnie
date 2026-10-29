@@ -1,0 +1,12 @@
+{
+  "note": "Illustrative sample portfolio with fixed prices; not live market data.",
+  "as_of": "2026-10-28",
+  "holdings": [
+    {"ticker": "VTI",  "name": "Total US Stock Market ETF",  "asset_type": "etf",   "quantity": 40,   "cost_basis": 220.0, "price": 268.0, "expense_ratio": 0.0003},
+    {"ticker": "VXUS", "name": "Total International Stock ETF", "asset_type": "etf", "quantity": 60,   "cost_basis": 55.0,  "price": 63.0,  "expense_ratio": 0.0005},
+    {"ticker": "BND",  "name": "Total Bond Market ETF",      "asset_type": "bond",  "quantity": 50,   "cost_basis": 74.0,  "price": 72.5,  "expense_ratio": 0.0003},
+    {"ticker": "AAPL", "name": "Apple Inc.",                 "asset_type": "stock", "quantity": 25,   "cost_basis": 150.0, "price": 190.0, "expense_ratio": 0.0},
+    {"ticker": "MSFT", "name": "Microsoft Corp.",            "asset_type": "stock", "quantity": 10,   "cost_basis": 310.0, "price": 415.0, "expense_ratio": 0.0},
+    {"ticker": "CASH", "name": "Cash",                       "asset_type": "cash",  "quantity": 2500, "cost_basis": 1.0,   "price": 1.0,   "expense_ratio": 0.0}
+  ]
+}

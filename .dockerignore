@@ -1,0 +1,21 @@
+# Keep the build context small and secrets out of the image.
+.env
+.env.*
+!.env.example
+
+.git/
+.venv*/
+.idea/
+.vscode/
+.DS_Store
+__pycache__/
+*.pyc
+*.egg-info/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+tests/
+docs/
+scripts/

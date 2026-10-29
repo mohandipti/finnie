@@ -1,0 +1,16 @@
+# Run Finnie locally in the same container image that will be deployed.
+#
+#   docker compose up --build        # then open http://localhost:8501
+#   FINNIE_PORT=8502 docker compose up --build   # if port 8501 is already in use
+#   docker compose down
+#
+# Settings and secrets come from .env at run time (GOOGLE_API_KEY etc.).
+
+services:
+  finnie:
+    build: .
+    image: finnie:local
+    ports:
+      - "${FINNIE_PORT:-8501}:8501"   # host port; e.g. FINNIE_PORT=8502 if 8501 is taken
+    env_file: .env
+    restart: unless-stopped
