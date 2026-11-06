@@ -3,7 +3,7 @@
 import sys
 from pathlib import Path
 
-APP_PATH = Path(__file__).resolve().parent / "web_app" / "app.py"
+APP_PATH = Path(__file__).resolve().parent / "web_app" / "server.py"
 
 
 def main() -> None:

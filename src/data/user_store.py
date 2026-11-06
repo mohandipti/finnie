@@ -150,6 +150,10 @@ class UserStore:
         self.users.update_one({"_id": user["_id"]}, {"$set": {"last_login_at": _now()}})
         return Account(id=str(user["_id"]), email=user["email"], name=user["name"])
 
+    def get_account(self, user_id: str | ObjectId) -> Account | None:
+        user = self.users.find_one({"_id": ObjectId(user_id)})
+        return Account(id=str(user["_id"]), email=user["email"], name=user["name"]) if user else None
+
     def update_name(self, user_id: str | ObjectId, name: str) -> None:
         self.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"name": name}})
 

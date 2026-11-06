@@ -90,6 +90,8 @@ class Settings(BaseSettings):
     # after they were written. Set CONVERSATION_STORE=memory to keep them in process memory instead.
     conversation_store: Literal["mongodb", "memory"] = "mongodb"
     conversation_ttl_days: int = Field(default=30, gt=0)
+    # A browser stays signed in across page refreshes until it has been unused for this many days.
+    session_ttl_days: int = Field(default=7, gt=0)
 
     log_level: str = "INFO"
 

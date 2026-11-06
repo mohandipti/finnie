@@ -47,7 +47,7 @@ I point `MONGODB_URI` in `.env` at any MongoDB (default `mongodb://localhost:270
 
 If MongoDB can't be reached, the sign-up and log-in pages say so and the rest of the app keeps working.
 
-Conversations are stored in the same database (`conversation_checkpoints` and `conversation_writes`), so a restart doesn't lose them, and they're deleted 30 days after they were written (`CONVERSATION_TTL_DAYS`). They include what users tell Finnie about their goals and portfolio. If MongoDB is down when Finnie starts, conversations are kept in memory instead until the next restart; `CONVERSATION_STORE=memory` does that on purpose.
+Conversations are stored in the same database (`conversation_checkpoints` and `conversation_writes`), so a restart doesn't lose them, and they're deleted 30 days after they were written (`CONVERSATION_TTL_DAYS`). They include what users tell Finnie about their goals and portfolio. If MongoDB is down when Finnie starts, conversations are kept in memory instead until the next restart; `CONVERSATION_STORE=memory` does that on purpose. Refreshing the page keeps me signed in and shows the conversation again: a session cookie points to my saved session in MongoDB for up to 7 days (`SESSION_TTL_DAYS`), and logging out ends it.
 
 ## Run with Docker
 

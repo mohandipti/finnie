@@ -1,4 +1,4 @@
-"""Finnie Streamlit app. Run with `finnie` or `streamlit run src/web_app/app.py`."""
+"""Finnie Streamlit app: page setup and navigation. Started through server.py (`finnie`), which adds the session cookie."""
 
 import sys
 from pathlib import Path

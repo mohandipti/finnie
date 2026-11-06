@@ -1,10 +1,12 @@
 """Chat tab: a conversation with Finnie, streamed from the LangGraph workflow."""
 
+import re
+
 import streamlit as st
 
 from src.core.models import Portfolio, UserProfile
 from src.data.user_store import UserStoreUnavailable
-from src.web_app.auth import current_account, get_user_store
+from src.web_app.auth import current_account, get_user_store, save_transcript
 from src.workflow.graph import FinnieGraph
 
 AGENT_LABELS = {
@@ -15,12 +17,19 @@ AGENT_LABELS = {
     "news": "News",
     "tax": "Tax",
 }
+# Streamlit's Markdown renders text between two dollar signs as LaTeX math.
+UNESCAPED_DOLLAR = re.compile(r"(?<!\\)\$")
 EXAMPLE_PROMPTS = [
     "What is an ETF?",
     "How does compound interest work?",
     "Why do bond prices fall when interest rates rise?",
     "What's the difference between a Roth and a traditional IRA?",
 ]
+
+
+def _md(text: str) -> str:
+    """Chat text with dollar signs escaped, so "$500 ... $1,000" shows as amounts rather than a formula."""
+    return UNESCAPED_DOLLAR.sub(r"\\$", text)
 
 
 def _render_reply_extras(agents: list[str], sources: list) -> None:
@@ -40,6 +49,10 @@ def render(graph: FinnieGraph | None, profile: UserProfile, portfolio: Portfolio
         return
 
     messages: list[dict] = st.session_state.messages
+    if st.session_state.pop("restored", False):  # after a page refresh, reopen a question left unanswered
+        pending = graph.pending_question(st.session_state.session_id)
+        if pending:
+            st.session_state.goal_question = pending
     # Inside a tab, chat_input is drawn where it's called rather than pinned to the bottom. The
     # conversation goes in a container created first, so new messages land above the input.
     conversation = st.container()
@@ -56,7 +69,7 @@ def render(graph: FinnieGraph | None, profile: UserProfile, portfolio: Portfolio
 
         for message in messages:
             with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+                st.markdown(_md(message["content"]))
                 if message["role"] == "assistant":
                     _render_reply_extras(message.get("agents", []), message.get("sources", []))
 
@@ -71,7 +84,7 @@ def _answer(graph: FinnieGraph, query: str, profile: UserProfile, portfolio: Por
             messages: list[dict]) -> None:
     messages.append({"role": "user", "content": query})
     with st.chat_message("user"):
-        st.markdown(query)
+        st.markdown(_md(query))
     _stream_reply(graph.ask_stream(st.session_state.session_id, query, profile=profile, portfolio=portfolio),
                   messages)
 
@@ -88,25 +101,27 @@ def _stream_reply(events, messages: list[dict]) -> None:
                 status.caption(event.text)
             elif event.type == "token":
                 text += event.text
-                body.markdown(text + " ▌")
+                body.markdown(_md(text) + " ▌")
             elif event.type == "interrupt":
                 st.session_state.goal_question = event.data
+                save_transcript()
                 st.rerun()
             elif event.type == "final":
                 reply = event.reply
         status.empty()
-        body.markdown(reply.content)  # the final reply is authoritative (includes the disclaimer)
+        body.markdown(_md(reply.content))  # the final reply is authoritative (includes the disclaimer)
         _render_reply_extras(reply.agents, reply.sources)
 
     messages.append(
         {"role": "assistant", "content": reply.content, "agents": reply.agents, "sources": reply.sources}
     )
+    save_transcript()
 
 
 def _ask_goal_question(graph: FinnieGraph, question: dict, messages: list[dict]) -> None:
     """The Goal Planning Agent's paused question: how much of the portfolio counts toward the goal."""
     with st.chat_message("assistant"):
-        st.markdown(question["question"])
+        st.markdown(_md(question["question"]))
         with st.form("goal_question_form", border=False):
             amount = st.number_input("Amount from your portfolio", min_value=0.0,
                                      max_value=float(question["portfolio_value"]), value=0.0, step=500.0,
@@ -128,7 +143,7 @@ def _ask_goal_question(graph: FinnieGraph, question: dict, messages: list[dict])
               else f"Don't count my portfolio toward {question['goal']}.")
     messages.append({"role": "user", "content": choice})
     with st.chat_message("user"):
-        st.markdown(choice)
+        st.markdown(_md(choice))
     _stream_reply(graph.resume_stream(st.session_state.session_id, {"amount": amount}), messages)
 
 

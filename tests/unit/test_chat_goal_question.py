@@ -40,3 +40,11 @@ def test_skip_counts_nothing():
     at = AppTest.from_function(chat_with_open_question).run()
     next(b for b in at.button if b.label == "Skip").click().run()
     assert at.session_state.resumed_with == {"amount": 0.0}
+
+
+def test_dollar_amounts_are_not_rendered_as_math():
+    from src.web_app.tabs.chat import _md
+
+    assert _md("Reach $1,000,000 in 3 years; you'd have $410,307") == (
+        r"Reach \$1,000,000 in 3 years; you'd have \$410,307")
+    assert _md(r"already \$5") == r"already \$5"
