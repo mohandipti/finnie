@@ -36,3 +36,5 @@ class FinnieState(TypedDict):
     final_response: str
     sources: list[Source]
     errors: Annotated[list[str], append_or_reset]  # this turn's errors
+    # Portfolio dollars the user chose to count toward each goal (by goal name), kept for the session.
+    goal_portfolio_answers: dict[str, float]

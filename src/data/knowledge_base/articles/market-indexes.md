@@ -3,7 +3,6 @@ title: "Market Indexes: S&P 500, Dow and Nasdaq"
 category: market_concepts
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/introduction-investing/investing-basics/glossary/market-indices
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

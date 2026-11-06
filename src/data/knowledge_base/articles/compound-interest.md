@@ -3,7 +3,6 @@ title: "Compound Interest: How Money Grows Over Time"
 category: basics
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/introduction-investing/investing-basics/glossary/compound-interest
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

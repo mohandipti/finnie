@@ -3,7 +3,6 @@ title: "Capital Gains Tax Basics"
 category: taxes
 source_name: "IRS"
 source_url: https://www.irs.gov/taxtopics/tc409
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

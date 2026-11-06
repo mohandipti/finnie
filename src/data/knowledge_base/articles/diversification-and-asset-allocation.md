@@ -3,7 +3,6 @@ title: "Diversification and Asset Allocation"
 category: diversification
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/additional-resources/general-resources/publications-research/info-sheets/beginners-guide-asset
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

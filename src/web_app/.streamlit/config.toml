@@ -1,0 +1,5 @@
+# Lives next to app.py so it applies however the app is started (finnie, streamlit run, Docker).
+
+[client]
+# Hide the Deploy button and the main menu (the three dots) in the top bar.
+toolbarMode = "minimal"

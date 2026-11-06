@@ -25,7 +25,6 @@ def load_article(path: Path) -> Document:
         "category": str(post.metadata["category"]),
         "source_name": str(post.metadata["source_name"]),
         "source_url": str(post.metadata["source_url"]),
-        "level": str(post.metadata.get("level", "beginner")),
         "file": path.name,
     }
     return Document(page_content=post.content.strip(), metadata=metadata)

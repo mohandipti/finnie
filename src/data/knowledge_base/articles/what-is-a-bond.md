@@ -3,7 +3,6 @@ title: "What Is a Bond?"
 category: bonds
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/introduction-investing/investing-basics/investment-products/bonds-or-fixed-income-products/bonds
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

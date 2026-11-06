@@ -2,7 +2,9 @@
 #
 #   docker compose up --build        # then open http://localhost:8501
 #   FINNIE_PORT=8502 docker compose up --build   # if port 8501 is already in use
-#   docker compose down
+#   docker compose up -d mongo       # only MongoDB, when running Finnie with `finnie` outside Docker
+#                                    # (not needed if MongoDB is already installed locally)
+#   docker compose down              # stops everything; accounts are kept in the mongo-data volume
 #
 # Settings and secrets come from .env at run time (GOOGLE_API_KEY etc.).
 
@@ -13,4 +15,25 @@ services:
     ports:
       - "${FINNIE_PORT:-8501}:8501"   # host port; e.g. FINNIE_PORT=8502 if 8501 is taken
     env_file: .env
+    environment:
+      MONGODB_URI: mongodb://mongo:27017   # the mongo service below, overriding the localhost URI in .env
+    depends_on:
+      mongo:
+        condition: service_healthy
     restart: unless-stopped
+
+  mongo:
+    image: mongo:8
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"   # this machine only; MONGO_PORT=27018 if 27017 is taken
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

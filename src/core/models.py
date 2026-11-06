@@ -5,7 +5,7 @@ untrusted sources (CSV uploads, form inputs, LLM extraction, market APIs) is
 validated at the boundary.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
@@ -15,6 +15,8 @@ RiskTolerance = Literal["conservative", "moderate", "aggressive"]
 AssetType = Literal["stock", "etf", "mutual_fund", "bond", "cash", "other"]
 SourceKind = Literal["kb", "market_api", "news_api"]
 QuoteSource = Literal["alpha_vantage", "cache", "mock"]
+NewsSource = Literal["serpapi", "cache"]
+Market = Literal["US"]  # only the US stock market is supported for now
 AgentName = Literal["finance_qa", "portfolio", "market", "goal_planning", "news", "tax"]
 
 
@@ -34,6 +36,8 @@ class FinancialGoal(BaseModel):
     monthly_contribution: float = Field(default=0, ge=0)
     horizon_years: float = Field(gt=0)  # years from now until the goal is due
     risk_tolerance: RiskTolerance
+    # Dollars of the user's portfolio set aside for this goal; None means not decided yet, so Finnie asks.
+    from_portfolio: float | None = Field(default=None, ge=0)
 
 
 class UserProfile(BaseModel):
@@ -64,6 +68,7 @@ class Portfolio(BaseModel):
     """A user's holdings, analyzed by the Portfolio Analysis Agent."""
 
     holdings: list[Holding] = Field(min_length=1)
+    market: Market = "US"
 
 
 class Source(BaseModel):
@@ -132,3 +137,52 @@ class Quote(BaseModel):
     @classmethod
     def normalize_ticker(cls, value: str) -> str:
         return _normalize_ticker(value)
+
+
+class PricePoint(BaseModel):
+    date: date
+    close: float = Field(ge=0)  # adjusted for splits and dividends
+
+
+class PriceHistory(BaseModel):
+    """Weekly closing prices, oldest first, with freshness metadata."""
+
+    ticker: str
+    interval: Literal["weekly"] = "weekly"
+    points: list[PricePoint] = Field(min_length=1)
+    as_of: datetime  # when the data was fetched
+    source: QuoteSource
+
+
+class TrendSummary(BaseModel):
+    """Simple trend statistics computed from a price history, for the Market agent and tab."""
+
+    ticker: str
+    last_close: float
+    last_date: date
+    change_1m: float | None  # fractional change, e.g. 0.05 = +5%; None if the history is too short
+    change_6m: float | None
+    change_1y: float | None
+    sma_10w: float | None  # ≈ 50-day moving average
+    sma_40w: float | None  # ≈ 200-day moving average
+    volatility: float | None  # annualized, from weekly returns over the last year
+    as_of: datetime
+    source: QuoteSource
+
+
+class NewsArticle(BaseModel):
+    """One headline from a news search."""
+
+    title: str
+    url: str
+    publisher: str | None = None
+    published_at: datetime | None = None
+
+
+class NewsResult(BaseModel):
+    """Headlines for one search query, most relevant first, with freshness metadata."""
+
+    query: str
+    articles: list[NewsArticle] = Field(default_factory=list)  # empty when nothing recent was found
+    as_of: datetime  # when the search was run
+    source: NewsSource

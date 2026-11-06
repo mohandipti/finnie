@@ -3,7 +3,6 @@ title: "Mutual Funds and Expense Ratios"
 category: mutual_funds
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/introduction-investing/investing-basics/glossary/expense-ratio
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

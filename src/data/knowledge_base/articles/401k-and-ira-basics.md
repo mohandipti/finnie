@@ -3,7 +3,6 @@ title: "Retirement Accounts: 401(k) and IRA Basics"
 category: retirement
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/additional-resources/retirement-toolkit/employer-sponsored-plans/traditional-and-roth-401k-plans
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

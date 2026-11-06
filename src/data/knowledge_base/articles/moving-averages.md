@@ -3,7 +3,6 @@ title: "Moving Averages Explained"
 category: market_concepts
 source_name: "Fidelity"
 source_url: https://www.fidelity.com/viewpoints/active-investor/moving-averages
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

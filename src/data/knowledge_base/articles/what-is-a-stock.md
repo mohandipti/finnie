@@ -3,7 +3,6 @@ title: "What Is a Stock?"
 category: stocks
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/introduction-investing/investing-basics/investment-products/stocks
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

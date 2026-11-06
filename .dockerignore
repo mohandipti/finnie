@@ -19,3 +19,10 @@ htmlcov/
 tests/
 docs/
 scripts/
+
+# AWS CDK (infrastructure code is not part of the app image)
+infra/
+cdk.out/
+
+# Local quote cache (rebuilt at run time)
+data/cache/

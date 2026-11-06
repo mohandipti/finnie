@@ -15,7 +15,7 @@ from typing import Literal, get_args
 
 from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
-from pydantic import BaseModel, SecretStr, field_validator
+from pydantic import BaseModel, Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from src.core.models import AgentName
@@ -74,6 +74,22 @@ class Settings(BaseSettings):
     # Retrieval. Chunks scoring below the minimum cosine similarity are discarded.
     # None uses a default calibrated for the embedding provider (see MIN_SCORE_DEFAULTS).
     retrieval_min_score: float | None = None
+
+    # Market data: quotes are cached on disk to stay within Alpha Vantage's free-tier limits.
+    market_cache_dir: Path = PROJECT_ROOT / "data" / "cache"
+    quote_cache_minutes: int = 30
+    history_cache_hours: int = 12  # weekly history changes at most once a day
+
+    # News: SerpAPI's free plan allows 250 searches a month, so each search is cached on disk.
+    news_cache_minutes: int = 60
+
+    # User accounts (MongoDB). The URI is secret because hosted clusters embed a password in it.
+    mongodb_uri: SecretStr = SecretStr("mongodb://localhost:27017")
+    mongodb_db: str = "finnie"
+    # Conversations (LangGraph checkpoints) are stored in the same database and deleted this many days
+    # after they were written. Set CONVERSATION_STORE=memory to keep them in process memory instead.
+    conversation_store: Literal["mongodb", "memory"] = "mongodb"
+    conversation_ttl_days: int = Field(default=30, gt=0)
 
     log_level: str = "INFO"
 

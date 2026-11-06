@@ -1,36 +1,68 @@
-"""Market tab: an overview of indexes and a price trend chart (static sample data for now)."""
+"""Market tab: index snapshot and a ticker's price trend, from live or cached Alpha Vantage data.
 
-import numpy as np
+Prices are fetched only while the tab is open, and share the market data cache with the
+Portfolio tab and the Market agent, so a ticker already looked up anywhere costs no request.
+"""
+
+import math
+from datetime import datetime
+
 import pandas as pd
 import plotly.graph_objects as go
 import streamlit as st
 
-from src.data.sample_data import load_sample_market
+from src.core.models import Portfolio, PriceHistory, Quote
+from src.data.market_data import TICKER_PATTERN, WEEKS_PER_YEAR
 from src.web_app.components.charts import series_colors, style
+from src.web_app.components.signup_forms import CASH_TICKER
+from src.web_app.tabs.portfolio import get_market_data
 
-PERIODS = {"3 months": 63, "6 months": 126, "1 year": 252}
-HISTORY_DAYS = 252 + 200  # enough history for a 200-day average over the longest period
+# Index values aren't on Alpha Vantage's free tier, so each index is shown through an ETF that tracks it.
+INDEX_ETFS = {"SPY": "S&P 500", "QQQ": "Nasdaq-100", "DIA": "Dow Jones"}
+POPULAR_TICKERS = ["SPY", "VTI", "QQQ", "AAPL", "MSFT"]
+PERIODS = {"3 months": 13, "6 months": 26, "1 year": 52, "5 years": 260}  # in weeks
+SOURCE_LABELS = {"alpha_vantage": "live", "cache": "cached", "mock": "sample"}
 
 
-@st.cache_data
-def sample_prices(ticker: str, start_price: float, drift: float, volatility: float, as_of: str) -> pd.DataFrame:
-    """A deterministic illustrative price path (seeded random walk), with 50/200-day moving averages."""
-    rng = np.random.default_rng(sum(map(ord, ticker)))
-    returns = rng.normal(drift, volatility, HISTORY_DAYS)
-    dates = pd.bdate_range(end=pd.Timestamp(as_of), periods=HISTORY_DAYS)
-    df = pd.DataFrame({"price": start_price * np.exp(np.cumsum(returns))}, index=dates)
-    df["sma50"] = df["price"].rolling(50).mean()
-    df["sma200"] = df["price"].rolling(200).mean()
+def history_frame(history: PriceHistory) -> pd.DataFrame:
+    """Weekly closes with 10- and 40-week moving averages (≈ 50- and 200-day), indexed by date."""
+    df = pd.DataFrame([{"date": p.date, "price": p.close} for p in history.points]).set_index("date")
+    df.index = pd.to_datetime(df.index)
+    df["sma10"] = df["price"].rolling(10).mean()
+    df["sma40"] = df["price"].rolling(40).mean()
     return df
+
+
+def period_stats(df: pd.DataFrame, weeks: int) -> dict[str, float | bool | None]:
+    """Change, annualized volatility and position vs the 40-week average over the last `weeks` weeks."""
+    window = df.tail(weeks + 1)  # weeks + 1 closes give `weeks` weekly changes
+    returns = window["price"].pct_change().dropna()
+    last = window.iloc[-1]
+    return {
+        "change": last["price"] / window["price"].iloc[0] - 1 if len(window) > 1 else None,
+        "volatility": returns.std() * math.sqrt(WEEKS_PER_YEAR) if len(returns) >= 2 else None,
+        "above_sma40": None if pd.isna(last["sma40"]) else bool(last["price"] > last["sma40"]),
+    }
+
+
+def ticker_options(portfolio: Portfolio | None) -> list[str]:
+    """The user's own holdings first, then a few common tickers."""
+    held = [h.ticker for h in portfolio.holdings if h.ticker != CASH_TICKER] if portfolio else []
+    return list(dict.fromkeys(held + POPULAR_TICKERS))
+
+
+def _retrieved(as_of: datetime, source: str) -> str:
+    return f"retrieved {as_of:%b %d, %H:%M} UTC ({SOURCE_LABELS.get(source, source)})"
 
 
 def _price_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
     colors = series_colors()
     fig = go.Figure()
-    for column, label, color, width in [("price", "Price", colors[0], 2), ("sma50", "50-day average", colors[1], 2),
-                                        ("sma200", "200-day average", colors[2], 2)]:
+    for column, label, color in [("price", "Weekly close", colors[0]),
+                                 ("sma10", "10-week average (≈ 50-day)", colors[1]),
+                                 ("sma40", "40-week average (≈ 200-day)", colors[2])]:
         fig.add_trace(go.Scatter(
-            x=df.index, y=df[column], name=label, mode="lines", line={"color": color, "width": width},
+            x=df.index, y=df[column], name=label, mode="lines", line={"color": color, "width": 2},
             hovertemplate=f"{label}: $%{{y:,.2f}}<extra></extra>",
         ))
     last = df.iloc[-1]
@@ -41,35 +73,62 @@ def _price_chart(df: pd.DataFrame, ticker: str) -> go.Figure:
     return style(fig, height=400)
 
 
-def render() -> None:
-    data = load_sample_market()
-    st.info(f"Illustrative sample data as of {data['as_of']}: index levels and price paths are not real. "
-            "Live quotes will come from the market data provider.", icon="ℹ️")
+def _index_cards(quotes: dict[str, Quote]) -> None:
+    with st.container(horizontal=True):
+        for etf, index_name in INDEX_ETFS.items():
+            quote = quotes.get(etf)
+            st.metric(f"{index_name} ({etf})", f"${quote.price:,.2f}" if quote else "—",
+                      f"{quote.change_pct:+.2f}%" if quote else None, border=True,
+                      help=f"{etf} is an ETF that tracks the {index_name}; its price moves with the index.")
+    if quotes:
+        oldest = min(quotes.values(), key=lambda q: q.as_of)
+        st.caption(f"Latest quotes from Alpha Vantage, {_retrieved(oldest.as_of, oldest.source)}. "
+                   "Change is since the previous close.")
+    else:
+        st.caption("Quotes are unavailable right now: the market data provider can't be reached, "
+                   "or today's request limit has been reached.")
 
-    columns = st.columns(len(data["indexes"]))
-    for column, index in zip(columns, data["indexes"]):
-        column.metric(index["name"], f"{index['value']:,.0f}", f"{index['change_pct']:+.2f}%")
 
-    tickers = data["tickers"]
-    ticker_col, period_col = st.columns([2, 1])
-    ticker = ticker_col.selectbox("Ticker", list(tickers), format_func=lambda t: f"{t} · {tickers[t]['name']}")
-    period = period_col.segmented_control("Period", list(PERIODS), default="1 year") or "1 year"
-    days = PERIODS[period]
+def render(portfolio: Portfolio | None = None) -> None:
+    data = get_market_data()
+    with st.spinner("Fetching market data..."):
+        quotes = data.get_quotes(list(INDEX_ETFS))
+    _index_cards(quotes)
 
-    params = tickers[ticker]
-    df = sample_prices(ticker, params["start_price"], params["daily_drift"], params["daily_volatility"], data["as_of"])
-    window = df.tail(days)
-    st.plotly_chart(_price_chart(window, ticker), use_container_width=True, theme="streamlit")
+    ticker_col, period_col = st.columns([2, 1], vertical_alignment="bottom")
+    choice = ticker_col.selectbox("Ticker", ticker_options(portfolio), accept_new_options=True,
+                                  key="market_ticker", help="Pick one, or type any US-listed ticker.")
+    period = period_col.segmented_control("Period", list(PERIODS), default="1 year", key="market_period") or "1 year"
+    ticker = (choice or "").strip().upper()
+    if not TICKER_PATTERN.match(ticker):
+        st.warning(f"“{choice}” doesn't look like a US ticker symbol (for example AAPL or BRK.B).",
+                   icon=":material/search_off:")
+        return
 
-    change = window["price"].iloc[-1] / window["price"].iloc[0] - 1
-    volatility = window["price"].pct_change().std() * np.sqrt(252)
-    c1, c2, c3 = st.columns(3)
-    c1.metric(f"Change over {period}", f"{change:+.1%}")
-    c2.metric("Annualized volatility", f"{volatility:.1%}", help="Standard deviation of daily returns × √252.")
-    above = window["price"].iloc[-1] > window["sma200"].iloc[-1]
-    c3.metric("vs 200-day average", "Above" if above else "Below",
-              help="Price above its 200-day average is often described as a long-term uptrend; it is not a prediction.")
+    with st.spinner(f"Fetching {ticker} price history..."):
+        history = data.get_history(ticker)
+    if history is None:
+        st.warning(f"No price history for {ticker}: it may not be a US-listed ticker, or the market data "
+                   "provider can't be reached right now.", icon=":material/cloud_off:")
+        return
+
+    df = history_frame(history)
+    weeks = PERIODS[period]
+    st.plotly_chart(_price_chart(df.tail(weeks + 1), ticker), width="stretch", theme="streamlit")
+    st.caption(f"Weekly closes adjusted for splits and dividends, up to {df.index[-1]:%b %d, %Y}; "
+               f"{_retrieved(history.as_of, history.source)}.")
+
+    stats = period_stats(df, weeks)
+    with st.container(horizontal=True):
+        st.metric(f"Change over {period}", "—" if stats["change"] is None else f"{stats['change']:+.1%}", border=True)
+        st.metric("Annualized volatility", "—" if stats["volatility"] is None else f"{stats['volatility']:.1%}",
+                  border=True, help="Standard deviation of weekly returns over the period × √52.")
+        above = stats["above_sma40"]
+        st.metric("vs 40-week average", "—" if above is None else ("Above" if above else "Below"), border=True,
+                  help="The 40-week average is close to the 200-day average. A price above it is often described "
+                       "as a long-term uptrend; it is not a prediction.")
 
     with st.expander("Show data table"):
-        st.dataframe(window.round(2).rename(columns={"price": "Price", "sma50": "50-day avg", "sma200": "200-day avg"}),
-                     use_container_width=True)
+        table = df.tail(weeks + 1).sort_index(ascending=False).round(2)
+        st.dataframe(table.rename(columns={"price": "Close", "sma10": "10-week avg", "sma40": "40-week avg"}),
+                     column_config={"_index": st.column_config.DateColumn("Week")}, placeholder="—")

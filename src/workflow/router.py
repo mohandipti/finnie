@@ -94,6 +94,8 @@ def keyword_route(query: str, available_agents: Iterable[str] = ALL_AGENTS) -> R
     ]
     if entities.holdings and "portfolio" in available_agents and "portfolio" not in agents:
         agents.append("portfolio")
+    if entities.tickers and not agents and "market" in available_agents:
+        agents.append("market")  # e.g. "How is AAPL doing?" or "Tell me about MSFT"
     if not agents:
         return RouterDecision(
             agents=[DEFAULT_AGENT], reason="Keyword fallback: no specific intent matched.", extracted=entities
@@ -113,7 +115,7 @@ class Router:
     """LLM router with keyword fallback.
 
     `available_agents` restricts routing to agents that are actually implemented
-    (News and Tax are stretch goals); anything else is dropped.
+    (Goal Planning isn't yet); anything else is dropped.
     """
 
     def __init__(self, llm: BaseChatModel, available_agents: Iterable[str] = ALL_AGENTS, max_attempts: int = 3):

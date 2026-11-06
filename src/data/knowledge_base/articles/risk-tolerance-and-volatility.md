@@ -3,7 +3,6 @@ title: "Risk Tolerance and Volatility"
 category: risk
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/introduction-investing/investing-basics/glossary/risk-tolerance
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

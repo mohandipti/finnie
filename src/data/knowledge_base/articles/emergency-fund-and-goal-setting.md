@@ -3,7 +3,6 @@ title: "Emergency Funds and Setting Financial Goals"
 category: goal_planning
 source_name: "Investor.gov (U.S. SEC)"
 source_url: https://www.investor.gov/build-wealth-over-time-through-saving-and-investing
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

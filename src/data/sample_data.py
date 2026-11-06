@@ -15,17 +15,11 @@ logger = logging.getLogger(__name__)
 DATA_DIR = Path(__file__).resolve().parent
 SAMPLE_PROFILES_DIR = DATA_DIR / "sample_profiles"
 SAMPLE_PORTFOLIO_FILE = DATA_DIR / "sample_portfolios" / "sample_portfolio.json"
-SAMPLE_MARKET_FILE = DATA_DIR / "sample_market" / "overview.json"
 
 
 def load_sample_portfolio() -> dict[str, Any]:
     """Sample holdings with fixed prices and expense ratios, for the Portfolio tab."""
     return json.loads(SAMPLE_PORTFOLIO_FILE.read_text())
-
-
-def load_sample_market() -> dict[str, Any]:
-    """Sample index levels and price-path parameters, for the Market tab."""
-    return json.loads(SAMPLE_MARKET_FILE.read_text())
 
 
 def load_sample_profile(session_id: str, name: str = "default") -> UserProfile:

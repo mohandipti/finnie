@@ -3,7 +3,6 @@ title: "Roth vs. Traditional IRA"
 category: taxes
 source_name: "IRS"
 source_url: https://www.irs.gov/retirement-plans/traditional-and-roth-iras
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

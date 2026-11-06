@@ -3,7 +3,6 @@ title: "Common Investing Biases"
 category: behavioral_finance
 source_name: "U.S. SEC (Library of Congress report)"
 source_url: https://www.sec.gov/investor/locinvestorbehaviorreport.pdf
-level: beginner
 last_reviewed: 2026-10-28
 ---
 

@@ -13,7 +13,11 @@ htmlcov/
 
 # Generated FAISS index (rebuild with the indexing command)
 data/index/
+data/cache/
 
 # IDE / OS
 .idea/
 .DS_Store
+
+# AWS CDK build output
+cdk.out/
