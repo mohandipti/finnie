@@ -38,7 +38,7 @@ Beginner and early-stage retail investors. They need plain-language explanations
 5. **Accessible.** Simple language, adjusted to the user's knowledge level.
 
 ### 1.5 Out of scope (v1)
-Authentication and user accounts, brokerage or trade execution, voice and mobile clients, crypto, international exchanges, fine-tuned models, Monte Carlo simulation. See §16 for future directions.
+Brokerage or trade execution, voice and mobile clients, crypto, international exchanges, fine-tuned models, Monte Carlo simulation. See §17 for future directions.
 
 ---
 
@@ -64,7 +64,8 @@ Authentication and user accounts, brokerage or trade execution, voice and mobile
 | Vector DB | FAISS / Chroma / Pinecone | **FAISS** (local, persisted to disk) | Milestone 6 names FAISS |
 | Market data | Alpha Vantage | ** Alpha Vantage ** behind one `MarketDataProvider` interface | Milestone 8 names Alpha Vantage, so both are implemented |
 | UI | Streamlit  | **Streamlit**, multi-tab |
-| State / memory | LangGraph  | **LangGraph state + `MemorySaver` checkpointer keyed by session id**, mirrored in `st.session_state` | |
+| State / memory | LangGraph  | **LangGraph state + `MongoDBSaver` checkpointer keyed by session id**, mirrored in `st.session_state` | Falls back to in-memory if MongoDB is unreachable |
+| User data | — | **MongoDB**: accounts, profiles, portfolios, browser sessions, transcripts | Local or Docker in development; MongoDB Atlas M0 in production |
 | Charts | — | **[ASSUMPTION]** Plotly | Pie, bar, line, projection charts |
 | Config | YAML / env vars | `config.yaml` + `.env` (secrets) via `pydantic-settings` | |
 | Testing | — | `pytest`, `pytest-cov`, `pytest-mock` | Target ≥ 80% coverage |
@@ -112,6 +113,8 @@ START
   ▼
 END
 ```
+`[goal_planning]` can pause the turn with LangGraph `interrupt()` to ask the user how much of their portfolio counts toward a goal; the turn resumes from the checkpoint with the answer (see FR-AG-4).
+
 Any node error is caught and routed to `[fallback]`. The fallback node returns a safe, generic response, falls back to `finance_qa` when it can, and records the error in `state.errors`.
 
 ### 4.3 Directory structure (prescribed by brief)
@@ -256,15 +259,21 @@ An abstract `BaseAgent` in `src/agents/base_agent.py` with:
   - With the provider down, the response uses cached or mock data and says so explicitly.
 
 ### FR-AG-4 Goal Planning Agent (MUST, core)
-- **Input:** `FinancialGoal` (from the Goals tab or extracted from chat). Defaults to the profile's risk tolerance.
+- **Input:** `FinancialGoal` (from the user's saved goals or extracted from chat). Defaults to the profile's risk tolerance.
 - **Projection algorithm** (deterministic code):
   - Future value with monthly compounding: `FV = PV(1+r)^n + PMT × [((1+r)^n − 1)/r]`, where `r` = annual return / 12 and `n` = months.
   - **[ASSUMPTION]** Expected annual returns by risk profile, configurable in `config.yaml`: conservative 4%, moderate 6%, aggressive 8%. Also show a low/high band (±2%).
   - Solve for the monthly contribution needed to reach the target, and for the years needed at the current contribution.
   - Optional inflation adjustment (default 3%, configurable).
 - **Behavior:** Explains the projection, the gap to target and trade-offs (time vs. contribution vs. risk). Suggests *educational* example allocation ranges per risk profile, clearly labelled as illustrative.
+- **Human in the loop (portfolio amount):** a portfolio can't simply be added to a goal, because it may fund several goals or sit in retirement accounts. So the agent asks the user first when all of these hold: the question is about exactly one saved goal, the user has a portfolio worth more than $0, and the goal's `from_portfolio` amount is blank.
+  - The goal planning node calls LangGraph `interrupt()` before any retrieval or LLM call. The turn pauses at a checkpoint, and the chat shows the portfolio value with an amount field and **Count it** / **Skip** buttons.
+  - The answer resumes the turn with `Command(resume={"amount": …})`. The amount is capped at the portfolio value and added to the goal's current savings in the projection. **Skip** counts $0.
+  - The answer is remembered for the rest of the conversation (`goal_portfolio_answers` in state). With **Save this to my goal**, it is stored as the goal's `from_portfolio`, and Finnie doesn't ask again.
+  - Sending a new message instead of answering skips the question (counts $0). A paused question survives a page refresh because the checkpoint is stored in MongoDB.
 - **AC:**
   - Projection math is unit-tested (including the `r = 0` edge case).
+  - A question about one goal with a blank portfolio amount pauses the turn; resuming with an amount uses it, capped at the portfolio value.
   - Changing the risk tolerance changes the projection.
   - Output includes `data.projection` (year-by-year series) for the chart.
 
@@ -297,7 +306,7 @@ An abstract `BaseAgent` in `src/agents/base_agent.py` with:
 - The synthesizer merges outputs into one coherent answer, deduplicates sources and keeps each agent's structured `data` for the UI.
 
 ### FR-WF-3 Conversation memory and context (MUST)
-- Full message history per session, using the LangGraph checkpointer keyed by `session_id` and mirrored in `st.session_state`.
+- Full message history per session, using the LangGraph checkpointer keyed by `session_id` (stored in MongoDB and kept 30 days) and mirrored in `st.session_state`.
 - Follow-ups resolve references ("what about its expense ratio?" → the previously discussed ticker).
 - **[ASSUMPTION]** Keep the last N=20 turns verbatim and summarize older turns to bound the token count.
 - Profile signals (risk tolerance, goals, knowledge level) persist across turns, and later turns use them.
@@ -400,14 +409,17 @@ Clean and beginner-friendly, with **4 main tabs** (FAQ). Grading focuses more on
 - Index snapshot (S&P 500, NASDAQ, Dow), ticker search, **price trend line chart** with SMA overlays, period selector, freshness badge.
 - **[SHOULD]** News panel (News agent).
 
-### FR-UI-4 Goals tab (MUST)
-- Goal form (name, target, current savings, monthly contribution, horizon, risk tolerance).
-- **Goal projection chart** (expected path plus low/high band, target line), required-contribution calculation, and the agent's explanation.
-- Supports multiple goals per session.
+### FR-UI-4 Goals (MUST)
+- Goals are entered in a table on the sign-up and My account pages: name, target, saved so far, amount counted from the portfolio, monthly contribution and horizon. The risk tolerance comes from the profile.
+- Projections are requested in the chat ("Am I on track for my house goal?"). The Goal Planning agent calculates the expected value with a low/high range, the gap to the target, the monthly contribution needed and the time needed, and explains them.
+- **Human in the loop:** when a goal doesn't say how much of the portfolio counts toward it, the chat pauses and asks, then continues with the answer; the user can save the amount to the goal.
+- Supports multiple goals per user.
 
-### FR-UI-5 Session handling (MUST)
-- `st.session_state` holds session id, messages, profile, portfolio and goals. No authentication required.
-- The profile and portfolio entered in the tabs are visible to the chat agents (shared state).
+### FR-UI-5 Accounts and sessions (MUST)
+- **Accounts:** sign-up and log-in with email and password. The profile (knowledge level, risk tolerance, interests, goals) and portfolio are saved in MongoDB and editable on the My account page. Home, sign-up and log-in are public; the assistant requires a signed-in user.
+- **Session state:** `st.session_state` holds the session id, messages, account, profile and portfolio. The profile and portfolio are visible to the chat agents (shared state).
+- **Persistence:** conversations are stored in MongoDB, so they survive restarts. A page refresh keeps the user signed in and shows the conversation again, through a session cookie that points to a server-side session (7 days unused). Logging out ends the session.
+- If MongoDB is unavailable, the account pages say so and the rest of the app keeps working.
 
 ### FR-UI-6 Responsiveness and UX (SHOULD)
 - Spinners and status during agent runs. Friendly error toasts. Charts are clearly labelled (titles, axis labels, currency formatting).
@@ -436,11 +448,12 @@ Clean and beginner-friendly, with **4 main tabs** (FAQ). Grading focuses more on
 | NFR-REL-1 | Resilience | No unhandled exceptions reach the UI. API outages degrade to cached or mock data |
 | NFR-REL-2 | LLM limits | Client-side rate limiting for the LLM (Gemini free tier ≈60 RPM) with backoff |
 | NFR-OBS-1 | Logging | Structured logging (`logging` + JSON formatter) with session id, node and latency. Log level set in config |
-| NFR-SEC-1 | Secrets | API keys only in `.env` (never committed). Ship `.env.example` |
+| NFR-SEC-1 | Secrets | API keys only in `.env` (never committed). Ship `.env.example`. In production, keys and the MongoDB connection string come from AWS Secrets Manager |
+| NFR-SEC-2 | Accounts | Passwords stored only as bcrypt hashes. The session cookie is random and HttpOnly, and only its SHA-256 hash is stored |
 | NFR-CFG-1 | Config | All tunables (models, TTLs, thresholds, return assumptions, rate limits, k, chunk sizes) live in `config.yaml`; env vars override them |
 | NFR-QA-1 | Testing | ≥ 80% line coverage. Unit and integration tests. Edge cases (malformed queries, empty input, invalid tickers, API failures). LLM and market calls mocked in unit tests |
 | NFR-MAINT-1 | Code quality | Modular, typed (type hints), docstrings on public functions. **[ASSUMPTION]** `ruff` + `black` |
-| NFR-DEP-1 | Runnability | One-command local run (`streamlit run src/web_app/app.py`). **[MAY]** Docker + docker-compose for bonus |
+| NFR-DEP-1 | Runnability | One-command local run (`finnie`, or `streamlit run src/web_app/server.py`). **[MAY]** Docker + docker-compose for bonus |
 
 ---
 

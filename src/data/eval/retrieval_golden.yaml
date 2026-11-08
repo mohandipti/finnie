@@ -1,0 +1,192 @@
+# Golden set for retrieval evaluation (see src/rag/evaluate.py).
+#
+# Each question lists the article file(s) that answer it; finding any of them counts as a hit.
+# Questions are worded the way a user would ask, not copied from article titles, so the
+# evaluation tests meaning rather than keyword overlap. When adding an article, add a question.
+
+queries:
+  # basics
+  - question: How does interest on interest make my savings grow faster over the years?
+    expected: [compound-interest.md]
+  - question: Roughly how long does it take to double my money at 8% a year?
+    expected: [rule-of-72.md]
+  - question: Why does a savings account advertise a different rate than a loan?
+    expected: [apr-vs-apy.md]
+  - question: How do I make a monthly spending plan?
+    expected: [budgeting-basics.md]
+  - question: Is my bank deposit safe if the bank fails?
+    expected: [fdic-deposit-insurance.md]
+  - question: What protects my brokerage account if the broker goes bankrupt?
+    expected: [sipc-protection.md]
+  - question: What happens if I only pay the minimum on my credit card?
+    expected: [credit-card-debt.md]
+  - question: What affects my FICO score?
+    expected: [credit-scores.md]
+  - question: How can I get my credit report for free and dispute a mistake?
+    expected: [credit-reports.md]
+  - question: Why does the Fed aim for 2 percent price growth?
+    expected: [inflation-basics.md]
+  - question: What's a CD and what happens if I withdraw early?
+    expected: [certificates-of-deposit.md]
+  - question: How do I check whether a financial adviser is legitimate?
+    expected: [choosing-a-financial-professional.md]
+
+  # stocks
+  - question: What does it mean to own shares of a company?
+    expected: [what-is-a-stock.md]
+  - question: What's the difference between a limit order and a market order?
+    expected: [market-limit-and-stop-orders.md]
+  - question: How is a price-to-earnings ratio calculated?
+    expected: [pe-ratio-and-eps.md]
+  - question: When do I need to own a stock to get its next dividend?
+    expected: [dividends-and-ex-dividend-dates.md]
+  - question: What happens to my shares when a company does a 2-for-1 split?
+    expected: [stock-splits.md]
+  - question: How are small-cap companies different from large-cap ones?
+    expected: [market-capitalization.md]
+  - question: Should preferred shareholders expect voting rights?
+    expected: [common-vs-preferred-stock.md]
+  - question: What are the risks of buying shares when a company first goes public?
+    expected: [initial-public-offerings.md]
+  - question: How can I invest in real estate through the stock market?
+    expected: [reits.md]
+  - question: Where in an annual report do I find a company's risk factors?
+    expected: [reading-a-10-k.md]
+  - question: What's the difference between growth stocks and value stocks?
+    expected: [growth-value-and-income-stocks.md]
+
+  # bonds
+  - question: What is a bond and how does it pay interest?
+    expected: [what-is-a-bond.md]
+  - question: Why do bond prices fall when interest rates rise?
+    expected: [bond-prices-and-interest-rates.md]
+  - question: What does a BBB rating mean for a bond?
+    expected: [bond-credit-ratings.md]
+  - question: Is interest from city and state bonds taxed?
+    expected: [municipal-bonds.md, taxes-on-interest-income.md]
+  - question: What's the difference between T-bills and T-notes?
+    expected: [treasury-securities.md]
+  - question: How do I protect my savings from inflation with government bonds?
+    expected: [tips-and-i-bonds.md]
+
+  # funds and ETFs
+  - question: How is an exchange-traded fund different from a mutual fund?
+    expected: [what-is-an-etf.md, mutual-funds-and-expense-ratios.md]
+  - question: How much do fund fees cost me over time?
+    expected: [mutual-funds-and-expense-ratios.md, mutual-fund-share-classes.md]
+  - question: What are Class A shares and front-end loads?
+    expected: [mutual-fund-share-classes.md]
+  - question: Why do people buy funds that track the S&P 500 instead of picking stocks?
+    expected: [index-funds.md]
+  - question: Why can a 3x leveraged ETF lose money even if the index ends up flat?
+    expected: [leveraged-inverse-etfs-and-etns.md]
+  - question: Where can I park cash short term and still earn some interest?
+    expected: [money-market-funds.md, certificates-of-deposit.md]
+
+  # diversification, risk and behaviour
+  - question: Why shouldn't I put all my money in one stock?
+    expected: [diversification-and-asset-allocation.md]
+  - question: How often should I bring my portfolio back to its target mix?
+    expected: [rebalancing.md]
+  - question: How do I figure out how much risk I can handle?
+    expected: [risk-tolerance-and-volatility.md]
+  - question: What does a beta of 1.5 tell me about a stock?
+    expected: [beta-and-volatility.md]
+  - question: What happens if my broker issues a margin call?
+    expected: [buying-on-margin.md]
+  - question: How can I spot a Ponzi scheme?
+    expected: [investment-fraud-red-flags.md]
+  - question: Why do investors tend to sell winners too early and hold losers?
+    expected: [common-investing-biases.md]
+
+  # market concepts
+  - question: What is the Dow and how is it different from the S&P 500?
+    expected: [market-indexes.md]
+  - question: What does a 200-day moving average show?
+    expected: [moving-averages.md]
+  - question: What counts as a bear market?
+    expected: [bull-and-bear-markets.md]
+  - question: How does betting against a stock work?
+    expected: [short-selling.md]
+  - question: What is the bid-ask spread?
+    expected: [liquidity-and-bid-ask-spreads.md]
+  - question: How do Fed rate hikes affect my mortgage and savings account?
+    expected: [interest-rates-borrowing-and-saving.md, what-the-federal-reserve-does.md]
+
+  # retirement
+  - question: What's the difference between a 401k and an IRA?
+    expected: [401k-and-ira-basics.md]
+  - question: How much can I put into my 401(k) this year?
+    expected: [retirement-contribution-limits-2026.md]
+  - question: When does my employer's matching contribution become mine?
+    expected: [employer-match-and-vesting.md]
+  - question: How do I move my old 401k when I change jobs?
+    expected: [retirement-plan-rollovers.md]
+  - question: At what age must I start taking money out of my IRA?
+    expected: [required-minimum-distributions.md]
+  - question: Should I claim Social Security at 62 or wait until 70?
+    expected: [social-security-claiming-age.md]
+  - question: What retirement plan can a freelancer open?
+    expected: [self-employed-retirement-plans.md]
+  - question: How does a 2050 target date fund change its investments over time?
+    expected: [target-date-funds.md]
+  - question: What's the difference between a pension and a 401(k)?
+    expected: [pensions-vs-401k-plans.md]
+  - question: What fees should I watch for in a variable annuity?
+    expected: [variable-annuities.md]
+  - question: How does an indexed annuity cap my returns?
+    expected: [fixed-and-indexed-annuities.md]
+
+  # taxes
+  - question: Should I choose a Roth or a traditional IRA?
+    expected: [roth-vs-traditional-ira.md]
+  - question: How are profits from selling stock taxed?
+    expected: [capital-gains-tax.md]
+  - question: Can I buy back a stock right after selling it at a loss for taxes?
+    expected: [wash-sale-rule.md]
+  - question: Are qualified dividends taxed at a lower rate?
+    expected: [how-dividends-are-taxed.md]
+  - question: What's the difference between my marginal and effective tax rate?
+    expected: [tax-brackets-marginal-vs-effective.md]
+  - question: Is a tax credit better than a deduction?
+    expected: [tax-credits-vs-deductions.md]
+  - question: Should I itemize or take the standard deduction?
+    expected: [standard-vs-itemized-deductions.md]
+  - question: What happens if I withdraw from my IRA before 59 and a half?
+    expected: [early-withdrawal-penalties.md]
+  - question: What are the tax benefits of an HSA?
+    expected: [health-savings-accounts.md]
+  - question: How do I save for my child's college with tax benefits?
+    expected: [529-education-savings-plans.md]
+  - question: Do I owe tax on the profit when I sell my house?
+    expected: [home-sale-exclusion.md]
+  - question: I'm self-employed; do I have to pay taxes every quarter?
+    expected: [estimated-taxes.md]
+  - question: How do I work out my gain if I bought shares at different prices?
+    expected: [cost-basis.md]
+  - question: How much can I give my kids each year without paying gift tax?
+    expected: [gift-and-estate-tax.md]
+  - question: Is there a tax credit for low-income workers who save for retirement?
+    expected: [savers-credit.md]
+  - question: What is the extra 3.8% tax on investment income?
+    expected: [net-investment-income-tax.md]
+
+  # goal planning
+  - question: How many months of expenses should I keep for emergencies?
+    expected: [emergency-fund-and-goal-setting.md]
+  - question: Is investing a fixed amount every month a good way to start?
+    expected: [dollar-cost-averaging.md]
+  - question: How much do I need to save for a down payment on a house?
+    expected: [saving-for-a-home-down-payment.md]
+
+# Questions the knowledge base doesn't cover. Their best match should score below the agents'
+# minimum relevance score, so agents answer without citing unrelated articles.
+off_topic:
+  - What's the best pizza place in New York?
+  - How do I fix a flat tire on my bike?
+  - Who won the 2022 World Cup?
+  - Give me a recipe for chocolate chip cookies.
+  - How do I reset my iPhone to factory settings?
+  - What's the weather like in Seattle in March?
+  - How do I train my puppy to sit?
+  - What is the capital of Australia?

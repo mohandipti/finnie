@@ -114,12 +114,15 @@ Total **4 LLM calls**. *"VTI vs VOO?"* with only VTI extracted adds one tool rou
 ## 5. RAG
 
 - ✅ 80 Markdown articles (all 12 categories; the largest are taxes 17, basics 12, stocks 11 and retirement 11) with front-matter, written from and verified against primary sources: the SEC (Investor.gov, sec.gov), FINRA, the IRS, the Federal Reserve, the CFPB, the FDIC, SIPC, TreasuryDirect, the Department of Labor, the Social Security Administration, S&P Dow Jones Indices and Fidelity.
-- ✅ Each article is a Markdown file with a YAML front-matter header (`title`, `category`, `source_name`, `source_url`, `level`, `last_reviewed`), parsed with `python-frontmatter` in `src/rag/loader.py`; the metadata is attached to every chunk for category filtering and citations.
+- ✅ Each article is a Markdown file with a YAML front-matter header (`title`, `category`, `source_name`, `source_url`, `last_reviewed`), parsed with `python-frontmatter` in `src/rag/loader.py`; the metadata is attached to every chunk for category filtering and citations.
 - ✅ Split by `##` section, then by size (1,500 chars); each chunk is prefixed with "title > section" → 475 chunks.
 - ✅ `gemini-embedding-001` vectors in FAISS with cosine similarity; a manifest records the embedding model, and the retriever refuses a mismatched index.
 - ✅ Top-5 chunks, category filters, cutoff 0.62 (calibrated: on-topic 0.66–0.79, off-topic 0.50–0.55).
 - ✅ Short follow-ups reuse the previous question: *"what about fees?"* → searches *"What is an ETF? what about fees?"*.
+- ✅ **Evaluation.** A golden set (`src/data/eval/retrieval_golden.yaml`) of 78 questions, worded the way users ask and covering every article, plus 8 off-topic questions. `finnie-eval-retrieval` (`src/rag/evaluate.py`) reports hit@k, MRR, the share of hits an agent keeps (score ≥ 0.62), off-topic rejection, results per category and the score margins. Current results with `gemini-embedding-001`: hit@1 97.4%, hit@3 and hit@5 100%, MRR 0.987, every off-topic question rejected; the weakest correct hit scores 0.688 and the strongest off-topic match 0.569, so 0.62 sits between them.
+- ✅ **Tests.** `tests/unit/test_rag_pipeline.py` runs offline: loading and chunking, every article has an https source and unique title, chunks stay within 1,500 characters, the agents' category filters exist, the golden set covers every article, and the metrics. `tests/integration/test_retrieval_eval.py` (`pytest -m eval`, about 90 embedding calls, excluded by default) checks the real index against thresholds (hit@3 and hit@5 ≥ 95%, MRR ≥ 0.85, off-topic rejection ≥ 85%), that the index was built from the current articles, and that category filters hold.
 - ⏳ Grow to about 100 articles plus a glossary.
+- ⏳ Answer-level evaluation (groundedness, citations, staying within education) with an LLM judge or RAGAS.
 
 ## 6. Performance
 
