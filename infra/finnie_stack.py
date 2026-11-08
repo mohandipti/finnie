@@ -10,10 +10,12 @@ Designed for the course lab account, which allows EC2 t2.micro in us-east-1 but 
 balancers. A new image (any code or index change) replaces the instance on the next deploy.
 
 Settings come from CDK context (cdk.json, or `cdk deploy -c key=value`):
-    secretName              secret holding the Google API key (default: finnie/google-api-key)
-    alphaVantageSecretName  secret holding the Alpha Vantage key (default: finnie/alpha-vantage-api-key)
-    serpApiSecretName       secret holding the SerpAPI key (default: finnie/serp-api-key)
-    mongodbSecretName       secret holding the MongoDB connection string (default: finnie/mongodb-uri)
+    stackName               CloudFormation stack name (default: FinnieStack; read in app.py)
+    secretPrefix            prefix of the secret names below (default: finnie)
+    secretName              secret holding the Google API key (default: <secretPrefix>/google-api-key)
+    alphaVantageSecretName  secret holding the Alpha Vantage key (default: <secretPrefix>/alpha-vantage-api-key)
+    serpApiSecretName       secret holding the SerpAPI key (default: <secretPrefix>/serp-api-key)
+    mongodbSecretName       secret holding the MongoDB connection string (default: <secretPrefix>/mongodb-uri)
     allowedCidrs            comma-separated IP ranges allowed to reach the app (default: everyone; set this!)
     instanceType            EC2 instance type (default: t2.micro)
 """
@@ -32,13 +34,13 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 HOST_PORT = 80
 CONTAINER_PORT = 8501
 
-# Environment variable → (context setting, default secret name, required). The app runs without the
-# optional keys (no live prices or news), so a missing optional secret doesn't stop the instance starting.
+# Environment variable → (context setting, secret name after the prefix, required). The app runs without
+# the optional keys (no live prices or news), so a missing optional secret doesn't stop the instance starting.
 SECRETS = {
-    "GOOGLE_API_KEY": ("secretName", "finnie/google-api-key", True),
-    "ALPHA_VANTAGE_API_KEY": ("alphaVantageSecretName", "finnie/alpha-vantage-api-key", False),
-    "SERP_API_KEY": ("serpApiSecretName", "finnie/serp-api-key", False),
-    "MONGODB_URI": ("mongodbSecretName", "finnie/mongodb-uri", False),
+    "GOOGLE_API_KEY": ("secretName", "google-api-key", True),
+    "ALPHA_VANTAGE_API_KEY": ("alphaVantageSecretName", "alpha-vantage-api-key", False),
+    "SERP_API_KEY": ("serpApiSecretName", "serp-api-key", False),
+    "MONGODB_URI": ("mongodbSecretName", "mongodb-uri", False),
 }
 
 # Starts the container after Docker on every boot, fetching the secrets afresh each time.
@@ -61,8 +63,9 @@ class FinnieStack(Stack):
     def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        secret_names = {env: self.node.try_get_context(setting) or default
-                        for env, (setting, default, _) in SECRETS.items()}
+        prefix = self.node.try_get_context("secretPrefix") or "finnie"
+        secret_names = {env: self.node.try_get_context(setting) or f"{prefix}/{name}"
+                        for env, (setting, name, _) in SECRETS.items()}
         allowed_cidrs = [c.strip() for c in (self.node.try_get_context("allowedCidrs") or "").split(",") if c.strip()]
         instance_type = self.node.try_get_context("instanceType") or "t2.micro"
 

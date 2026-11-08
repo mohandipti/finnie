@@ -28,13 +28,13 @@ Allowed IP ─► HTTP :80 ─► EC2 t2.micro (Amazon Linux 2023, default VPC)
 | CloudWatch log group | Container logs, kept for 1 month |
 | Container image in ECR | The Finnie image, pushed by CDK into the bootstrap repository |
 
-**Created once, outside the stack** (kept by `cdk destroy`):
+**Created once, outside the stack** (kept by `cdk destroy`). Secret names start with the `secretPrefix` setting, `finnie-dmohan-100` in this deployment:
 
 | Resource | Created by | Purpose |
 |---|---|---|
-| Secrets Manager secret `finnie/google-api-key` | `aws secretsmanager create-secret` | The Google API key (required), read by the instance at start-up |
-| Secrets Manager secrets `finnie/alpha-vantage-api-key`, `finnie/serp-api-key` | `aws secretsmanager create-secret` | The Alpha Vantage and SerpAPI keys (optional: without them there are no live prices or news) |
-| Secrets Manager secret `finnie/mongodb-uri` | `aws secretsmanager create-secret` | The MongoDB Atlas connection string (optional: without it there are no accounts, and conversations are kept in memory) |
+| Secrets Manager secret `finnie-dmohan-100/google-api-key` | `aws secretsmanager create-secret` | The Google API key (required), read by the instance at start-up |
+| Secrets Manager secrets `finnie-dmohan-100/alpha-vantage-api-key`, `finnie-dmohan-100/serp-api-key` | `aws secretsmanager create-secret` | The Alpha Vantage and SerpAPI keys (optional: without them there are no live prices or news) |
+| Secrets Manager secret `finnie-dmohan-100/mongodb-uri` | `aws secretsmanager create-secret` | The MongoDB Atlas connection string (optional: without it there are no accounts, and conversations are kept in memory) |
 | MongoDB Atlas M0 cluster | The Atlas web console | The database for accounts and conversations; free, hosted by MongoDB on AWS in us-east-1 |
 | CDK bootstrap stack `CDKToolkit` | `cdk bootstrap` | An S3 bucket and ECR repository where CDK uploads templates and images, plus its own IAM roles |
 
@@ -45,9 +45,9 @@ Allowed IP ─► HTTP :80 ─► EC2 t2.micro (Amazon Linux 2023, default VPC)
 1. **Tools:**  AWS CLI configured (`aws configure`), Docker running, and the CDK library installed with `pip install -e ".[infra]"` from the project root. 
 2. **API keys:** stored in Secrets Manager, so they never appear in code or CloudFormation. `read -s` waits for me to paste the key's value (not the `NAME=` part) without showing it or saving it in my shell history:
    ```bash
-   read -s KEY && aws secretsmanager create-secret --region us-east-1 --name finnie/google-api-key --secret-string "$KEY"; unset KEY
-   read -s KEY && aws secretsmanager create-secret --region us-east-1 --name finnie/alpha-vantage-api-key --secret-string "$KEY"; unset KEY
-   read -s KEY && aws secretsmanager create-secret --region us-east-1 --name finnie/serp-api-key --secret-string "$KEY"; unset KEY
+   read -s KEY && aws secretsmanager create-secret --region us-east-1 --name finnie-dmohan-100/google-api-key --secret-string "$KEY"; unset KEY
+   read -s KEY && aws secretsmanager create-secret --region us-east-1 --name finnie-dmohan-100/alpha-vantage-api-key --secret-string "$KEY"; unset KEY
+   read -s KEY && aws secretsmanager create-secret --region us-east-1 --name finnie-dmohan-100/serp-api-key --secret-string "$KEY"; unset KEY
    ```
    The Google key is required. The other two are optional: if a secret doesn't exist, the app starts without live prices or news. To change a key later, I use `put-secret-value --secret-id <name>` instead of `create-secret --name <name>`. The instance fetches the secrets on every boot, so after changing one I reboot the instance (EC2 → Instance state → Reboot).
 3. **MongoDB Atlas:** I created the database by hand once, so deploys never create or replace it:
@@ -56,7 +56,7 @@ Allowed IP ─► HTTP :80 ─► EC2 t2.micro (Amazon Linux 2023, default VPC)
    3. **Network Access:** add my laptop's IP for local testing. The instance's Elastic IP is added after the first deploy.
    4. **Connect → Drivers:** copy the `mongodb+srv://` string, put the password in, and store it as plain text (not key/value):
       ```bash
-      read -s MONGO_URI && aws secretsmanager create-secret --region us-east-1 --name finnie/mongodb-uri --secret-string "$MONGO_URI"; unset MONGO_URI
+      read -s MONGO_URI && aws secretsmanager create-secret --region us-east-1 --name finnie-dmohan-100/mongodb-uri --secret-string "$MONGO_URI"; unset MONGO_URI
       ```
 4. **Knowledge base index:** the image includes the FAISS index, so build it first with `finnie-index --rebuild` from the project root.
 5. **Bootstrap CDK** once per account and region:
@@ -80,6 +80,8 @@ After the first deploy, I add the `ElasticIpAddress` output to Atlas **Network A
 
 I always pass `allowedCidrs` until sign-up exists. Without it the app is open to the internet, and anyone with the URL could use the paid API key. When my IP changes, I deploy again with the new one.
 
+**Current deployment:** stack `FinnieStack-dmohan-100`, Elastic IP `54.88.18.49`, so the app is at http://54.88.18.49 (reachable only from the IPs in `allowedCidrs`). Atlas Network Access allows `54.88.18.49/32`.
+
 The instance is x86 (`t2.micro`), so the image is built for x86. Docker emulates that on Apple Silicon, which makes the first build take several minutes.
 
 ## Updating
@@ -98,12 +100,20 @@ Set in `cdk.json` under `context`, or per command with `-c key=value`:
 | Setting | Default | Purpose |
 |---|---|---|
 | `region` | `us-east-1` | AWS region (the lab account only supports us-east-1) |
+| `stackName` | `FinnieStack` | CloudFormation stack name; set per person in a shared account (`cdk.json` uses `FinnieStack-dmohan-100`) |
+| `secretPrefix` | `finnie` | Prefix of the four secret names below |
 | `allowedCidrs` | empty (anyone) | Comma-separated IP ranges allowed to reach the app |
-| `secretName` | `finnie/google-api-key` | Secrets Manager secret holding the Google API key |
-| `alphaVantageSecretName` | `finnie/alpha-vantage-api-key` | Secrets Manager secret holding the Alpha Vantage key |
-| `serpApiSecretName` | `finnie/serp-api-key` | Secrets Manager secret holding the SerpAPI key |
-| `mongodbSecretName` | `finnie/mongodb-uri` | Secrets Manager secret holding the MongoDB connection string |
+| `secretName` | `<secretPrefix>/google-api-key` | Secrets Manager secret holding the Google API key |
+| `alphaVantageSecretName` | `<secretPrefix>/alpha-vantage-api-key` | Secrets Manager secret holding the Alpha Vantage key |
+| `serpApiSecretName` | `<secretPrefix>/serp-api-key` | Secrets Manager secret holding the SerpAPI key |
+| `mongodbSecretName` | `<secretPrefix>/mongodb-uri` | Secrets Manager secret holding the MongoDB connection string |
 | `instanceType` | `t2.micro` | EC2 instance type (the lab account only supports t2.micro) |
+
+## Shared account
+
+The lab account is shared by several people. CloudFormation identifies a stack by its name, so two deploys with the same stack name would replace each other's instance and Elastic IP, and `cdk destroy` would delete both. Each person therefore sets their own `stackName` in `cdk.json` (or passes `-c stackName=...`). Images don't clash: CDK tags each image with a hash of its contents in the shared bootstrap repository.
+
+Secret names are shared too. With a common `secretPrefix`, one person's `put-secret-value` would change another's key or point their app at another database, so each person can use their own prefix (for example `-c secretPrefix=dmohan`) and create their secrets under it.
 
 ## Removing everything
 

@@ -6,9 +6,12 @@ import aws_cdk as cdk
 from finnie_stack import FinnieStack
 
 app = cdk.App()
+# The lab account is shared, so each person deploys under their own stack name (cdk.json or
+# `-c stackName=...`); two deploys with the same name would replace each other's stack.
+stack_name = app.node.try_get_context("stackName") or "FinnieStack"
 FinnieStack(
     app,
-    "FinnieStack",
+    stack_name,
     # The lab account only allows us-east-1; override with `-c region=...` in other accounts.
     env=cdk.Environment(
         account=os.getenv("CDK_DEFAULT_ACCOUNT"),
