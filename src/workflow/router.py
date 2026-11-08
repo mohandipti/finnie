@@ -4,6 +4,10 @@ Classifies the user's message into one or more agents using an LLM with
 structured output (RouterDecision). If the LLM call fails or returns nothing
 usable, a keyword/regex classifier takes over; if that finds nothing, the
 query goes to finance_qa.
+
+The LLM also judges the message's scope: an off-topic or disallowed message is
+sent to the refusal node instead of any agent. The keyword fallback can't judge
+scope, so it treats every message as finance.
 """
 
 import logging
@@ -114,8 +118,8 @@ def _format_history(history: Sequence[BaseMessage]) -> str:
 class Router:
     """LLM router with keyword fallback.
 
-    `available_agents` restricts routing to agents that are actually implemented
-    (Goal Planning isn't yet); anything else is dropped.
+    `available_agents` restricts routing to the agents registered in the graph;
+    anything else is dropped.
     """
 
     def __init__(self, llm: BaseChatModel, available_agents: Iterable[str] = ALL_AGENTS, max_attempts: int = 3):
@@ -174,6 +178,9 @@ def make_router_node(llm: BaseChatModel | None = None, available_agents: Iterabl
         if history and isinstance(history[-1], HumanMessage) and history[-1].content == query:
             history = history[:-1]  # the current message is sent separately, not as history
         decision, error = router.route(query, history)
+        if decision.scope != "finance":
+            logger.info("session=%s refused: %s (%s)", state.get("session_id"), decision.scope, decision.reason)
+            return {"route": [], "route_reason": decision.reason, "blocked_reason": decision.scope}
         logger.info("session=%s route=%s reason=%s", state.get("session_id"), decision.agents, decision.reason)
         update = {
             "route": list(decision.agents),
@@ -189,4 +196,6 @@ def make_router_node(llm: BaseChatModel | None = None, available_agents: Iterabl
 
 def select_agents(state: FinnieState) -> list[str]:
     """Conditional-edge function: returning several node names makes LangGraph run them in parallel."""
+    if state.get("blocked_reason"):
+        return ["refusal"]
     return state.get("route") or [DEFAULT_AGENT]

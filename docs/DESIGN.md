@@ -4,10 +4,10 @@ How Finnie is built and why. Updated as components land. ✅ implemented · ⏳ 
 
 ## 1. Architecture
 
-A LangGraph router picks one or more specialist agents; they run in parallel, and their answers are merged, compliance-checked and shown in Streamlit.
+An input guard screens the message, a LangGraph router picks one or more specialist agents; they run in parallel, and their answers are merged, compliance-checked and shown in Streamlit.
 
 ```
-user ─► router ─┬─► finance_qa ──┐
+user ─► input_guard ─► router ─┬─► finance_qa ──┐
                 ├─► portfolio ───┤
                 ├─► market ──────┼─► synthesizer ─► compliance_guard ─► UI
                 ├─► goal_planning┤
@@ -61,7 +61,6 @@ user ─► router ─┬─► finance_qa ──┐
 - Market cites a "Moving averages" article for the concept but takes the price from market data.
 
 **2.6 Layered compliance.** Shared `COMPLIANCE_RULES` in every prompt, plus a `compliance_guard` node that adds a caveat to advice-like phrasing and appends the disclaimer (kept out of conversation memory so the LLM doesn't repeat it).
-- *"Should I buy TSLA?"* → how to evaluate a stock, no recommendation, disclaimer.
 
 **2.7 Pydantic at boundaries, TypedDict for state.**
 - A CSV row with `quantity = -5` is rejected by `Holding` before any calculation.
@@ -73,6 +72,13 @@ user ─► router ─┬─► finance_qa ──┐
 - The pause is at the start of the agent's own node, not a separate node before it: an extra step on one branch would make the synthesizer run twice. On resume LangGraph re-runs the node from the start; only the (cached) portfolio pricing runs again, and agents that ran alongside it keep their results.
 - A new chat message while a question is open counts as *Skip*.
 - The paused turn lives in the checkpointer (MongoDB, section 7), so it survives a restart and can be resumed by another app instance.
+
+**2.9 Input guardrails.** The user's message is checked before any agent runs (`src/core/input_guard.py`):
+- *Personal data:* card numbers (Luhn-checked, so long amounts aren't touched), Social Security numbers and account numbers are replaced with `[… removed]` in `FinnieGraph.ask_stream`, before the message enters the graph, so they never reach Gemini or a MongoDB checkpoint. The chat shows and saves the redacted text, and the reply adds a note asking the user not to share them.
+- *Over-long messages* (over 2,000 characters; the chat box also stops at 2,000) and *prompt injection* ("ignore your previous instructions", "reveal your system prompt", "developer mode") are refused by the `input_guard` node, with narrow regex patterns so ordinary questions such as "Should I ignore market noise?" pass.
+- *Off-topic* ("write a poem") and *disallowed* requests (laundering money, insider trading, tax evasion) are judged by the router, which returns a `scope` alongside the agents; it costs no extra LLM call. Questions about those rules ("What is insider trading?") stay finance. The keyword fallback can't judge scope, so it lets everything through.
+- A refused message goes to the `refusal` node, which answers with a fixed message and skips every agent; the compliance guard still adds the disclaimer. With Gemini, 12 of 12 sample questions were classified correctly, including those borderline pairs.
+- *"Should I buy TSLA?"* → how to evaluate a stock, no recommendation, disclaimer.
 
 ## 3. Agent communication
 

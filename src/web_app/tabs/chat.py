@@ -4,6 +4,7 @@ import re
 
 import streamlit as st
 
+from src.core.input_guard import MAX_QUERY_CHARS, redact_personal_data
 from src.core.models import Portfolio, UserProfile
 from src.data.user_store import UserStoreUnavailable
 from src.web_app.auth import current_account, get_user_store, save_transcript
@@ -56,7 +57,7 @@ def render(graph: FinnieGraph | None, profile: UserProfile, portfolio: Portfolio
     # Inside a tab, chat_input is drawn where it's called rather than pinned to the bottom. The
     # conversation goes in a container created first, so new messages land above the input.
     conversation = st.container()
-    query = st.chat_input("Ask Finnie about money and investing") or st.session_state.pop("pending_prompt", None)
+    query = st.chat_input("Ask Finnie about money and investing", max_chars=MAX_QUERY_CHARS) or st.session_state.pop("pending_prompt", None)
 
     with conversation:
         if not messages and not query:
@@ -82,6 +83,7 @@ def render(graph: FinnieGraph | None, profile: UserProfile, portfolio: Portfolio
 
 def _answer(graph: FinnieGraph, query: str, profile: UserProfile, portfolio: Portfolio | None,
             messages: list[dict]) -> None:
+    query, _ = redact_personal_data(query)  # never shown back or saved with card or account numbers
     messages.append({"role": "user", "content": query})
     with st.chat_message("user"):
         st.markdown(_md(query))

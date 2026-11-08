@@ -10,14 +10,48 @@ A multi-agent assistant that teaches personal finance and investing basics. Desi
 | 🔀 **LangGraph orchestration** | An LLM router picks one or several agents, which run **in parallel**. A synthesizer merges their answers, and a compliance guard checks every reply. Every turn is checkpointed in MongoDB, so conversations survive restarts. |
 | 🙋 **Human in the loop** | Before projecting a goal, the Goal Planning agent **pauses the workflow mid-turn** (LangGraph `interrupt()`) and asks how much of the user's portfolio should count toward it, showing the portfolio's current value. The user enters an amount (capped at the portfolio value), or skips, and the turn **resumes from its checkpoint** with that number. The answer can be saved to the goal so Finnie doesn't ask again, and a paused question survives a page refresh. |
 | 📚 **RAG on trusted sources** | 80 articles from the SEC, FINRA, IRS, Federal Reserve, CFPB, FDIC and more, split into 475 chunks and searched with FAISS and Gemini embeddings. Retrieval is category-filtered, a relevance cut-off drops weak matches, and every answer cites its sources. **Measured** on a 78-question golden set: hit@1 97.4%, hit@3 100%, MRR 0.987, all off-topic questions rejected. |
-| 📈 **Live market data** | **Alpha Vantage** quotes and price history, Google News headlines via **SerpAPI**, and on-disk caching to stay within free-tier limits. Every figure shows its source and when it was retrieved, and missing data is flagged rather than invented. |
+| 📈 **Live market data** | **Alpha Vantage** quotes and price history, Google News headlines via **SerpAPI**. A **disk cache** keeps Finnie within the free tiers (about 25 Alpha Vantage requests a day, 250 SerpAPI searches a month): quotes are reused for 30 minutes, price history for 12 hours and news for 60 minutes. If an API fails or hits its limit, the last good copy is served and labelled as cached. Every figure shows its source and when it was retrieved, and missing data is flagged rather than invented. |
 | 💼 **Portfolio and goals** | Holdings valued at live prices, with allocation, gain/loss, diversification score, risk level and weighted fees. Goal projections are calculated in code (expected value, low/high range, monthly amount needed, time to target), never by the LLM. |
 | 💬 **Conversational and personal** | Streaming answers, follow-ups that remember context ("what about its volatility?"), and explanations matched to beginner, intermediate or advanced users and their risk tolerance. |
 | 📊 **Visualizations** | Interactive Plotly charts: allocation by holding and by asset type, price trends with 50- and 200-day moving averages, and an index snapshot. The palette is checked for colorblind safety. |
-| 🛡️ **Education, not advice** | Agents never recommend trades or predict prices. The compliance guard flags advice-like phrasing, and every reply carries a disclaimer. |
+| 🛡️ **Guardrails on both sides** | **Input:** card, Social Security and account numbers are removed before Gemini or the database ever sees them, messages are capped at 2,000 characters, and prompt-injection attempts, off-topic requests and requests to break the law (e.g. *"How can I launder money without the bank noticing?"*) are politely refused without running any agent. **Output:** agents never recommend trades or predict prices, the compliance guard flags advice-like phrasing, and every reply carries a disclaimer. |
 | 🔐 **Accounts** | Sign-up and log-in with bcrypt-hashed passwords. Profiles, goals and portfolios are saved in MongoDB, and an HttpOnly session cookie keeps the user signed in across page refreshes. |
 | ☁️ **Cloud-ready** | Non-root Docker image with a health check, deployed by AWS CDK to EC2 with ECR, Secrets Manager, CloudWatch, an Elastic IP and an IP allow-list. Production data lives in MongoDB Atlas. |
-| ✅ **Tested** | 97 unit tests (agents, workflow pause and resume, projections, stores, UI with Streamlit AppTest) plus a retrieval evaluation suite run against the real index (`pytest -m eval`). |
+| ✅ **Tested** | 123 unit tests (agents, guardrails, workflow pause and resume, projections, stores, UI with Streamlit AppTest) plus a retrieval evaluation suite run against the real index (`pytest -m eval`). |
+
+## LangGraph workflow
+
+```mermaid
+flowchart TD
+    START([START]) --> load_context["load_context<br/><i>record message, reset turn</i>"]
+    load_context --> input_guard{"input_guard<br/><i>length, prompt injection</i>"}
+    input_guard -- blocked --> refusal["refusal<br/><i>fixed reply</i>"]
+    input_guard -- ok --> router{"router<br/><i>LLM picks agents + scope</i>"}
+    router -- "off-topic / disallowed" --> refusal
+
+    router -- "one or more, in parallel" --> finance_qa["Finance Q&A"]
+    router --> portfolio[Portfolio]
+    router --> market[Market]
+    router --> goal_planning[Goal Planning]
+    router --> news[News]
+    router --> tax[Tax]
+
+    goal_planning -. "interrupt(): how much of the portfolio counts?" .-> user((User))
+    user -. "Command(resume=amount)" .-> goal_planning
+
+    finance_qa & portfolio & market & goal_planning & news & tax --> synthesizer["synthesizer<br/><i>merge answers</i>"]
+    synthesizer --> compliance_guard["compliance_guard<br/><i>advice check, disclaimer</i>"]
+    refusal --> compliance_guard
+    compliance_guard --> update_memory["update_memory<br/><i>save turn</i>"]
+    update_memory --> END([END])
+
+    checkpointer[("MongoDB checkpointer<br/>state per session")] -.- update_memory
+```
+
+- **Before the graph:** card, Social Security and account numbers are removed from the message, so they're never stored.
+- **Parallel agents:** the router can pick several agents, which run at the same time. The synthesizer merges their answers, and passes a single agent's answer through unchanged. For example, *"Why did Tesla's stock drop this week?"* runs Market and News together.
+- **Human in the loop:** Goal Planning can pause the turn with `interrupt()` to ask the user a question. The turn waits in the checkpointer and resumes with the answer.
+- **Every reply** passes through `compliance_guard`, refusals included, and each turn is checkpointed in MongoDB, so conversations survive restarts.
 
 ## Setup
 

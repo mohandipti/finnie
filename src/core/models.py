@@ -120,6 +120,11 @@ class RouterDecision(BaseModel):
     agents: list[AgentName] = Field(min_length=1, description="Every agent needed to answer the message")
     reason: str = Field(description="One short sentence explaining the choice")
     extracted: ExtractedEntities = Field(default_factory=ExtractedEntities)
+    scope: Literal["finance", "off_topic", "disallowed"] = Field(
+        default="finance",
+        description="finance for anything about money; off_topic for unrelated requests; disallowed for requests "
+                    "to help break the law or harm someone",
+    )
 
 
 class Quote(BaseModel):

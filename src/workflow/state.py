@@ -36,5 +36,8 @@ class FinnieState(TypedDict):
     final_response: str
     sources: list[Source]
     errors: Annotated[list[str], append_or_reset]  # this turn's errors
+    # Set by the input guard or the router when the message is refused instead of answered.
+    blocked_reason: str
+    redacted: list[str]  # personal data removed from this turn's message, e.g. "a card number"
     # Portfolio dollars the user chose to count toward each goal (by goal name), kept for the session.
     goal_portfolio_answers: dict[str, float]

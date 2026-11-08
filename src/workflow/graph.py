@@ -1,7 +1,12 @@
 """Assembles Finnie's LangGraph workflow.
 
-    START → load_context → router ─┬─► <agent> ─┐
-                                   └─► <agent> ─┴─► synthesizer → compliance_guard → update_memory → END
+    START → load_context → input_guard → router ─┬─► <agent> ─┐
+                                 │                ├─► <agent> ─┴─► synthesizer ─┐
+                                 └────────────────┴─► refusal ──────────────────┴─► compliance_guard → update_memory → END
+
+Input guardrails: personal data is removed from the message before it enters the graph, so it is
+never stored; input_guard refuses over-long messages and prompt injection; the router refuses
+off-topic and disallowed requests. A refused message gets a fixed reply from the refusal node.
 
 Only agents passed in (or created by default) are registered, and the router is
 restricted to them. Conversation state is kept per session by a checkpointer,
@@ -32,8 +37,17 @@ if TYPE_CHECKING:
     from src.core.config import Settings
 
 from src.agents.base_agent import BaseAgent
+from src.core.input_guard import redact_personal_data
 from src.core.models import AgentResponse, ExtractedEntities, Portfolio, Source, UserProfile
-from src.workflow.nodes import compliance_guard, load_context, make_synthesizer_node, update_memory
+from src.workflow.nodes import (
+    after_input_guard,
+    compliance_guard,
+    input_guard,
+    load_context,
+    make_synthesizer_node,
+    refusal,
+    update_memory,
+)
 from src.workflow.router import make_router_node, select_agents
 from src.workflow.state import FinnieState
 
@@ -137,6 +151,8 @@ class FinnieGraph:
 
         graph = StateGraph(FinnieState)
         graph.add_node("load_context", load_context)
+        graph.add_node("input_guard", input_guard)
+        graph.add_node("refusal", refusal)
         graph.add_node("router", make_router_node(router_llm, available_agents=list(self.agents)))
         for name, agent in self.agents.items():
             graph.add_node(name, agent.as_node())
@@ -145,8 +161,11 @@ class FinnieGraph:
         graph.add_node("update_memory", update_memory)
 
         graph.add_edge(START, "load_context")
-        graph.add_edge("load_context", "router")
-        graph.add_conditional_edges("router", select_agents, list(self.agents))  # fan-out, run in parallel
+        graph.add_edge("load_context", "input_guard")
+        graph.add_conditional_edges("input_guard", after_input_guard, ["router", "refusal"])
+        # fan-out: the selected agents run in parallel, or the refusal node if the router refused the message
+        graph.add_conditional_edges("router", select_agents, [*self.agents, "refusal"])
+        graph.add_edge("refusal", "compliance_guard")
         for name in self.agents:
             graph.add_edge(name, "synthesizer")  # fan-in: runs once after all selected agents finish
         graph.add_edge("synthesizer", "compliance_guard")
@@ -195,7 +214,8 @@ class FinnieGraph:
 
         `portfolio` is always written to state, so None clears a portfolio the user has deleted.
         """
-        inputs: dict = {"session_id": session_id, "user_query": query, "portfolio": portfolio}
+        query, redacted = redact_personal_data(query)
+        inputs: dict = {"session_id": session_id, "user_query": query, "portfolio": portfolio, "redacted": redacted}
         if profile is not None:
             inputs["user_profile"] = profile
         if self.pending_question(session_id) is not None:
@@ -226,7 +246,7 @@ class FinnieGraph:
         for mode, payload in self.app.stream(graph_input, config=config, stream_mode=["updates", "messages"]):
             if mode == "updates":
                 node, update = next(iter(payload.items()))
-                if node == "router" and update:
+                if node == "router" and update and not update.get("blocked_reason"):
                     route = update.get("route") or ["finance_qa"]
                     answering_node = self._answering_node(route)
                     yield StreamEvent("status", text=f"Answering with: {', '.join(route)}", node=node)

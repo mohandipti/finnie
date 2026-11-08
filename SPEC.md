@@ -436,6 +436,7 @@ Clean and beginner-friendly, with **4 main tabs** (FAQ). Grading focuses more on
 | NFR-CMP-4 | Stick to widely accepted principles. If unsure or out of scope, say so. |
 | NFR-CMP-5 | Tax content states the jurisdiction (US) and recommends a tax professional. |
 | NFR-CMP-6 | A visible disclaimer banner in the app footer/sidebar. |
+| NFR-CMP-7 | Input guardrails: card, Social Security and account numbers are removed before the message reaches the LLM or storage; prompt injection, over-long, off-topic and disallowed requests get a fixed refusal without running any agent. |
 
 ---
 

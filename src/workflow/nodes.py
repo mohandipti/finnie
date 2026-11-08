@@ -1,6 +1,7 @@
 """Workflow nodes other than the router and agents.
 
-    load_context → router → agent(s) → synthesizer → compliance_guard → update_memory
+    load_context → input_guard → router → agent(s) → synthesizer → compliance_guard → update_memory
+                        └──────────┴──► refusal ───────────────────┘
 """
 
 import logging
@@ -11,6 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
 from src.agents.prompts import SYNTHESIZER_SYSTEM_PROMPT
 from src.core.disclaimers import ADVICE_CAVEAT, DISCLAIMER, find_advice_phrases, has_disclaimer, strip_disclaimer
+from src.core.input_guard import REFUSALS, check_input, privacy_note
 from src.core.models import AgentResponse, Source
 from src.data.sample_data import load_sample_profile
 from src.workflow.state import FinnieState
@@ -31,12 +33,36 @@ def load_context(state: FinnieState) -> dict[str, Any]:
         "errors": None,
         "route": [],
         "route_reason": "",
+        "blocked_reason": "",
         "sources": [],
         "final_response": "",
     }
     if not state.get("user_profile"):
         update["user_profile"] = load_sample_profile(state.get("session_id", "anonymous"))
     return update
+
+
+def input_guard(state: FinnieState) -> dict[str, Any]:
+    """Refuse an over-long message or a prompt injection attempt before any LLM sees it.
+
+    Personal data has already been removed from the message by FinnieGraph, before the message
+    was written to the conversation store.
+    """
+    reason = check_input(state.get("user_query") or "")
+    if reason is None:
+        return {}
+    logger.warning("session=%s refused input: %s", state.get("session_id"), reason)
+    return {"blocked_reason": reason}
+
+
+def after_input_guard(state: FinnieState) -> str:
+    """Conditional edge: refused messages skip the router and agents."""
+    return "refusal" if state.get("blocked_reason") else "router"
+
+
+def refusal(state: FinnieState) -> dict[str, Any]:
+    """Answer a refused message with a fixed explanation instead of running any agent."""
+    return {"final_response": REFUSALS[state["blocked_reason"]], "route": [], "sources": []}
 
 
 def _merge_sources(outputs: list[AgentResponse]) -> list[Source]:
@@ -91,12 +117,15 @@ def make_synthesizer_node(llm: BaseChatModel | None = None, max_attempts: int = 
 
 
 def compliance_guard(state: FinnieState) -> dict[str, Any]:
-    """Add a caveat if the answer reads like personal advice, and always append the disclaimer."""
+    """Add a caveat if the answer reads like personal advice, a note if personal data was removed from
+    the message, and always append the disclaimer."""
     response = state.get("final_response") or NO_ANSWER_MESSAGE
     flagged = find_advice_phrases(response)
     if flagged:
         logger.warning("session=%s advice-like phrasing: %s", state.get("session_id"), flagged)
         response = f"{response}\n\n{ADVICE_CAVEAT}"
+    if state.get("redacted"):
+        response = f"{response}\n\n{privacy_note(state['redacted'])}"
     if not has_disclaimer(response):
         response = f"{response}\n\n---\n*{DISCLAIMER}*"
     return {"final_response": response}
